@@ -73,6 +73,30 @@ fn scope() -> Scope {
                         }),
                     ),
                     (
+                        "%".to_string(),
+                        Function::BuiltIn(|args, scope| {
+                            let n1 =
+                                f64::from_ne_bytes(args[0].raw_data.clone().try_into().unwrap());
+                            let n2 =
+                                f64::from_ne_bytes(args[1].raw_data.clone().try_into().unwrap());
+                            let mut ins = scope.get("Number").unwrap().clone();
+                            ins.raw_data = (n1 % n2).to_ne_bytes().to_vec();
+                            ins
+                        }),
+                    ),
+                    (
+                        "^".to_string(),
+                        Function::BuiltIn(|args, scope| {
+                            let n1 =
+                                f64::from_ne_bytes(args[0].raw_data.clone().try_into().unwrap());
+                            let n2 =
+                                f64::from_ne_bytes(args[1].raw_data.clone().try_into().unwrap());
+                            let mut ins = scope.get("Number").unwrap().clone();
+                            ins.raw_data = n1.powf(n2).to_ne_bytes().to_vec();
+                            ins
+                        }),
+                    ),
+                    (
                         "__display__".to_string(),
                         Function::BuiltIn(|args, scope| {
                             let mut ins = scope.get("String").unwrap().clone();
