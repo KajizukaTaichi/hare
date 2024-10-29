@@ -405,7 +405,7 @@ impl Node {
         match self {
             Node::Expr(expr) => expr.eval(scope),
             Node::Object(obj) => obj.clone(),
-            Node::Variable(v) => scope.get(v).unwrap().clone(),
+            Node::Variable(v) => scope.get(v).unwrap_or(scope.get("Error").unwrap()).clone(),
         }
     }
 }
