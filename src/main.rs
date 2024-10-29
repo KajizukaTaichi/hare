@@ -11,7 +11,7 @@ fn main() {
             rl.add_history_entry(&line).unwrap_or_default();
             let program = parse_expr(line, scope);
 
-            println!("{:#?}", &program);
+            // println!("{:#?}", &program);
             println!("{}", program.eval(scope).display(scope));
         }
     }
