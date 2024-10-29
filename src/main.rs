@@ -4,15 +4,12 @@ use std::collections::HashMap;
 fn main() {
     println!("Hare 0.1.0");
     let mut rl = DefaultEditor::new().unwrap();
-    let scope = &scope();
+    let scope = &mut scope();
     loop {
         let line = rl.readline("> ").unwrap().trim().to_string();
         if !line.is_empty() {
             rl.add_history_entry(&line).unwrap_or_default();
-            let program = parse_expr(line, scope);
-
-            // println!("{:#?}", &program);
-            println!("{}", program.eval(scope).display(scope));
+            println!("{}", run_program(line, scope).display(scope));
         }
     }
 }
@@ -158,49 +155,168 @@ fn scope() -> Scope {
                 )]),
             },
         ),
+        (
+            "None".to_string(),
+            Object {
+                raw_data: vec![],
+                methods: HashMap::from([(
+                    "__display__".to_string(),
+                    Function::BuiltIn(|_, scope| {
+                        let mut ins = scope.get("String").unwrap().clone();
+                        ins.raw_data = "None".to_string().as_bytes().to_vec();
+                        ins
+                    }),
+                )]),
+            },
+        ),
     ])
 }
 
+fn run_program(source: String, scope: &mut Scope) -> Object {
+    let mut result = scope.get("None").unwrap().clone();
+    for line in tokenize_program(source) {
+        if line.len() == 2 {
+            result = parse_expr(line[1].to_string(), scope).eval(scope);
+            scope.insert(line[0].trim().to_string(), result.clone());
+        } else {
+            result = parse_expr(line[0].to_string(), scope).eval(scope);
+        }
+    }
+    result
+}
+
 fn parse_expr(source: String, scope: &Scope) -> Node {
-    let tokens = tokenize(source);
+    let tokens = tokenize_expr(source);
     if tokens.len() >= 2 {
         let object = parse_object(tokens[0].clone(), scope);
         let method = tokens[1].to_string();
         let args = tokens[2..]
             .iter()
-            .map(|i| {
-                if i.starts_with('(') | i.ends_with(')') {
-                    parse_expr(i[1..i.len() - 1].to_string(), scope)
-                } else {
-                    Node::Object(parse_object(i.clone(), scope))
-                }
-            })
+            .map(|i| parse_object(i.clone(), scope))
             .collect();
         Node::Expr(Expr {
-            object,
+            object: Box::new(object),
             method,
             args,
         })
     } else {
-        Node::Object(parse_object(tokens[0].clone(), scope))
+        parse_object(tokens[0].clone(), scope)
     }
 }
 
-fn parse_object(source: String, scope: &Scope) -> Object {
+fn parse_object(source: String, scope: &Scope) -> Node {
+    let source = source.trim().to_string();
     if let Ok(n) = source.parse::<f64>() {
         let mut ins = scope.get("Number").unwrap().clone();
         ins.raw_data = n.to_ne_bytes().to_vec();
-        ins
+        Node::Object(ins)
     } else if source.starts_with('"') | source.ends_with('"') {
         let mut ins = scope.get("String").unwrap().clone();
         ins.raw_data = source[1..source.len() - 1].to_string().as_bytes().to_vec();
-        ins
+        Node::Object(ins)
+    } else if source.starts_with('(') | source.ends_with(')') {
+        parse_expr(source[1..source.len() - 1].to_string(), scope)
     } else {
-        scope.get("Error").unwrap().clone()
+        Node::Variable(source)
     }
 }
 
-fn tokenize(input: String) -> Vec<String> {
+fn tokenize_program(input: String) -> Vec<Vec<String>> {
+    let mut tokens: Vec<Vec<String>> = Vec::new();
+    let mut current_token = String::new();
+    let mut after_equal = String::new();
+    let mut is_equal = false;
+    let mut in_parentheses: usize = 0;
+    let mut in_quote = false;
+    let mut escape = false;
+
+    for c in input.chars() {
+        match c {
+            '(' | '{' | '[' if !in_quote => {
+                if is_equal {
+                    after_equal.push(c);
+                } else {
+                    current_token.push(c);
+                }
+                in_parentheses += 1;
+            }
+            ')' | '}' | ']' if !in_quote => {
+                if is_equal {
+                    after_equal.push(c);
+                } else {
+                    current_token.push(c);
+                }
+                in_parentheses -= 1;
+            }
+            '"' => {
+                if !escape {
+                    in_quote = !in_quote;
+                    escape = false;
+                }
+                if is_equal {
+                    after_equal.push(c);
+                } else {
+                    current_token.push(c);
+                }
+            }
+            ';' if !in_quote => {
+                if in_parentheses != 0 {
+                    if is_equal {
+                        after_equal.push(c);
+                    } else {
+                        current_token.push(c);
+                    }
+                } else {
+                    if !current_token.is_empty() {
+                        if is_equal {
+                            is_equal = false;
+                            tokens.push(vec![current_token.clone(), after_equal.clone()]);
+                            current_token.clear();
+                            after_equal.clear();
+                        } else {
+                            tokens.push(vec![current_token.clone()]);
+                            current_token.clear();
+                        }
+                    }
+                }
+            }
+            '=' if !in_quote => {
+                if in_parentheses != 0 {
+                    if is_equal {
+                        after_equal.push(c);
+                    } else {
+                        current_token.push(c);
+                    }
+                } else {
+                    is_equal = true;
+                }
+            }
+            '\\' => {
+                escape = true;
+            }
+            _ => {
+                if is_equal {
+                    after_equal.push(c);
+                } else {
+                    current_token.push(c);
+                }
+            }
+        }
+    }
+
+    if in_parentheses == 0 && !current_token.is_empty() {
+        if is_equal {
+            tokens.push(vec![current_token.clone(), after_equal]);
+            current_token.clear();
+        } else {
+            tokens.push(vec![current_token.clone()]);
+            current_token.clear();
+        }
+    }
+    tokens
+}
+
+fn tokenize_expr(input: String) -> Vec<String> {
     let mut tokens: Vec<String> = Vec::new();
     let mut current_token = String::new();
     let mut in_parentheses: usize = 0;
@@ -281,6 +397,7 @@ impl Object {
 enum Node {
     Expr(Expr),
     Object(Object),
+    Variable(String),
 }
 
 impl Node {
@@ -288,13 +405,14 @@ impl Node {
         match self {
             Node::Expr(expr) => expr.eval(scope),
             Node::Object(obj) => obj.clone(),
+            Node::Variable(v) => scope.get(v).unwrap().clone(),
         }
     }
 }
 
 #[derive(Debug, Clone)]
 struct Expr {
-    object: Object,
+    object: Box<Node>,
     method: String,
     args: Vec<Node>,
 }
@@ -302,6 +420,8 @@ struct Expr {
 impl Expr {
     fn eval(&self, scope: &Scope) -> Object {
         let args: Vec<Object> = self.args.iter().map(|i| i.eval(scope)).collect();
-        self.object.call(self.method.clone(), args, scope)
+        self.object
+            .eval(scope)
+            .call(self.method.clone(), args, scope)
     }
 }
