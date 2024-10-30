@@ -17,7 +17,7 @@ fn main() {
 fn scope() -> Scope {
     HashMap::from([
         (
-            "Number".to_string(),
+            "number".to_string(),
             Object {
                 raw_data: 0f64.to_ne_bytes().to_vec(),
                 methods: HashMap::from([
@@ -28,7 +28,7 @@ fn scope() -> Scope {
                                 f64::from_ne_bytes(args[0].raw_data.clone().try_into().unwrap());
                             let n2 =
                                 f64::from_ne_bytes(args[1].raw_data.clone().try_into().unwrap());
-                            let mut ins = scope.get("Number").unwrap().clone();
+                            let mut ins = scope.get("number").unwrap().clone();
                             ins.raw_data = (n1 + n2).to_ne_bytes().to_vec();
                             ins
                         }),
@@ -40,7 +40,7 @@ fn scope() -> Scope {
                                 f64::from_ne_bytes(args[0].raw_data.clone().try_into().unwrap());
                             let n2 =
                                 f64::from_ne_bytes(args[1].raw_data.clone().try_into().unwrap());
-                            let mut ins = scope.get("Number").unwrap().clone();
+                            let mut ins = scope.get("number").unwrap().clone();
                             ins.raw_data = (n1 - n2).to_ne_bytes().to_vec();
                             ins
                         }),
@@ -52,7 +52,7 @@ fn scope() -> Scope {
                                 f64::from_ne_bytes(args[0].raw_data.clone().try_into().unwrap());
                             let n2 =
                                 f64::from_ne_bytes(args[1].raw_data.clone().try_into().unwrap());
-                            let mut ins = scope.get("Number").unwrap().clone();
+                            let mut ins = scope.get("number").unwrap().clone();
                             ins.raw_data = (n1 * n2).to_ne_bytes().to_vec();
                             ins
                         }),
@@ -64,7 +64,7 @@ fn scope() -> Scope {
                                 f64::from_ne_bytes(args[0].raw_data.clone().try_into().unwrap());
                             let n2 =
                                 f64::from_ne_bytes(args[1].raw_data.clone().try_into().unwrap());
-                            let mut ins = scope.get("Number").unwrap().clone();
+                            let mut ins = scope.get("number").unwrap().clone();
                             ins.raw_data = (n1 / n2).to_ne_bytes().to_vec();
                             ins
                         }),
@@ -76,7 +76,7 @@ fn scope() -> Scope {
                                 f64::from_ne_bytes(args[0].raw_data.clone().try_into().unwrap());
                             let n2 =
                                 f64::from_ne_bytes(args[1].raw_data.clone().try_into().unwrap());
-                            let mut ins = scope.get("Number").unwrap().clone();
+                            let mut ins = scope.get("number").unwrap().clone();
                             ins.raw_data = (n1 % n2).to_ne_bytes().to_vec();
                             ins
                         }),
@@ -88,15 +88,15 @@ fn scope() -> Scope {
                                 f64::from_ne_bytes(args[0].raw_data.clone().try_into().unwrap());
                             let n2 =
                                 f64::from_ne_bytes(args[1].raw_data.clone().try_into().unwrap());
-                            let mut ins = scope.get("Number").unwrap().clone();
+                            let mut ins = scope.get("number").unwrap().clone();
                             ins.raw_data = n1.powf(n2).to_ne_bytes().to_vec();
                             ins
                         }),
                     ),
                     (
-                        "__display__".to_string(),
+                        "to-string".to_string(),
                         Function::BuiltIn(|args, scope| {
-                            let mut ins = scope.get("String").unwrap().clone();
+                            let mut ins = scope.get("string").unwrap().clone();
                             ins.raw_data =
                                 f64::from_ne_bytes(args[0].raw_data.clone().try_into().unwrap())
                                     .to_string()
@@ -105,11 +105,17 @@ fn scope() -> Scope {
                             ins
                         }),
                     ),
+                    (
+                        "__display__".to_string(),
+                        Function::BuiltIn(|args, scope| {
+                            args[0].call("to-string".to_string(), vec![], scope)
+                        }),
+                    ),
                 ]),
             },
         ),
         (
-            "String".to_string(),
+            "string".to_string(),
             Object {
                 raw_data: "".to_string().as_bytes().to_vec(),
                 methods: HashMap::from([
@@ -118,7 +124,7 @@ fn scope() -> Scope {
                         Function::BuiltIn(|args, scope| {
                             let s1 = String::from_utf8(args[0].raw_data.clone()).unwrap();
                             let s2 = String::from_utf8(args[1].raw_data.clone()).unwrap();
-                            let mut ins = scope.get("String").unwrap().clone();
+                            let mut ins = scope.get("string").unwrap().clone();
                             ins.raw_data = (s1 + &s2).as_bytes().to_vec();
                             ins
                         }),
@@ -129,26 +135,112 @@ fn scope() -> Scope {
                             let s = String::from_utf8(args[0].raw_data.clone()).unwrap();
                             let n =
                                 f64::from_ne_bytes(args[1].raw_data.clone().try_into().unwrap());
-                            let mut ins = scope.get("String").unwrap().clone();
+                            let mut ins = scope.get("string").unwrap().clone();
                             ins.raw_data = (s.repeat(n as usize)).as_bytes().to_vec();
                             ins
                         }),
                     ),
                     (
                         "__display__".to_string(),
-                        Function::BuiltIn(|args, _| args[0].clone()),
+                        Function::BuiltIn(|args, scope| {
+                            let mut ins = scope.get("string").unwrap().clone();
+                            ins.raw_data = format!(
+                                "\"{}\"",
+                                String::from_utf8(args[0].raw_data.clone().try_into().unwrap())
+                                    .unwrap()
+                            )
+                            .as_bytes()
+                            .to_vec();
+                            ins
+                        }),
                     ),
                 ]),
             },
         ),
         (
-            "Error".to_string(),
+            "block".to_string(),
+            Object {
+                raw_data: "".to_string().as_bytes().to_vec(),
+                methods: HashMap::from([
+                    (
+                        "eval".to_string(),
+                        Function::BuiltIn(|args, scope| {
+                            let s1 = String::from_utf8(args[0].raw_data.clone()).unwrap();
+                            run_program(s1, &mut scope.clone())
+                        }),
+                    ),
+                    (
+                        "loop".to_string(),
+                        Function::BuiltIn(|args, scope| {
+                            let s1 = String::from_utf8(args[0].raw_data.clone()).unwrap();
+                            loop {
+                                run_program(s1.clone(), scope);
+                            }
+                        }),
+                    ),
+                    (
+                        "__display__".to_string(),
+                        Function::BuiltIn(|args, scope| {
+                            let mut ins = scope.get("string").unwrap().clone();
+                            ins.raw_data = format!(
+                                "{{ {} }}",
+                                String::from_utf8(args[0].raw_data.clone().try_into().unwrap())
+                                    .unwrap()
+                            )
+                            .as_bytes()
+                            .to_vec();
+                            ins
+                        }),
+                    ),
+                ]),
+            },
+        ),
+        (
+            "console".to_string(),
+            Object {
+                raw_data: "".to_string().as_bytes().to_vec(),
+                methods: HashMap::from([
+                    (
+                        "writeln".to_string(),
+                        Function::BuiltIn(|args, _| {
+                            let s1 = String::from_utf8(args[1].raw_data.clone()).unwrap();
+                            println!("{s1}");
+                            args[0].clone()
+                        }),
+                    ),
+                    (
+                        "read".to_string(),
+                        Function::BuiltIn(|args, scope| {
+                            let prompt = String::from_utf8(args[1].raw_data.clone()).unwrap();
+                            let mut ins = scope.get("string").unwrap().clone();
+                            ins.raw_data = DefaultEditor::new()
+                                .unwrap()
+                                .readline(&prompt)
+                                .unwrap()
+                                .as_bytes()
+                                .to_vec();
+                            ins
+                        }),
+                    ),
+                    (
+                        "__display__".to_string(),
+                        Function::BuiltIn(|_, scope| {
+                            let mut ins = scope.get("string").unwrap().clone();
+                            ins.raw_data = format!("console").as_bytes().to_vec();
+                            ins
+                        }),
+                    ),
+                ]),
+            },
+        ),
+        (
+            "error".to_string(),
             Object {
                 raw_data: vec![],
                 methods: HashMap::from([(
                     "__display__".to_string(),
                     Function::BuiltIn(|_, scope| {
-                        let mut ins = scope.get("String").unwrap().clone();
+                        let mut ins = scope.get("string").unwrap().clone();
                         ins.raw_data = "Error!".to_string().as_bytes().to_vec();
                         ins
                     }),
@@ -156,14 +248,14 @@ fn scope() -> Scope {
             },
         ),
         (
-            "None".to_string(),
+            "none".to_string(),
             Object {
                 raw_data: vec![],
                 methods: HashMap::from([(
                     "__display__".to_string(),
                     Function::BuiltIn(|_, scope| {
-                        let mut ins = scope.get("String").unwrap().clone();
-                        ins.raw_data = "None".to_string().as_bytes().to_vec();
+                        let mut ins = scope.get("string").unwrap().clone();
+                        ins.raw_data = "none".to_string().as_bytes().to_vec();
                         ins
                     }),
                 )]),
@@ -173,7 +265,7 @@ fn scope() -> Scope {
 }
 
 fn run_program(source: String, scope: &mut Scope) -> Object {
-    let mut result = scope.get("None").unwrap().clone();
+    let mut result = scope.get("none").unwrap().clone();
     for line in tokenize_program(source) {
         if line.len() == 2 {
             result = parse_expr(line[1].to_string(), scope).eval(scope);
@@ -207,15 +299,19 @@ fn parse_expr(source: String, scope: &Scope) -> Node {
 fn parse_object(source: String, scope: &Scope) -> Node {
     let source = source.trim().to_string();
     if let Ok(n) = source.parse::<f64>() {
-        let mut ins = scope.get("Number").unwrap().clone();
+        let mut ins = scope.get("number").unwrap().clone();
         ins.raw_data = n.to_ne_bytes().to_vec();
         Node::Object(ins)
     } else if source.starts_with('"') | source.ends_with('"') {
-        let mut ins = scope.get("String").unwrap().clone();
+        let mut ins = scope.get("string").unwrap().clone();
         ins.raw_data = source[1..source.len() - 1].to_string().as_bytes().to_vec();
         Node::Object(ins)
     } else if source.starts_with('(') | source.ends_with(')') {
         parse_expr(source[1..source.len() - 1].to_string(), scope)
+    } else if source.starts_with('{') | source.ends_with('}') {
+        let mut ins = scope.get("block").unwrap().clone();
+        ins.raw_data = source[1..source.len() - 1].to_string().as_bytes().to_vec();
+        Node::Object(ins)
     } else {
         Node::Variable(source)
     }
@@ -364,7 +460,7 @@ type Scope = HashMap<String, Object>;
 
 #[derive(Debug, Clone)]
 enum Function {
-    BuiltIn(fn(Vec<Object>, &Scope) -> Object),
+    BuiltIn(fn(Vec<Object>, &mut Scope) -> Object),
 }
 
 #[derive(Debug, Clone)]
@@ -374,17 +470,17 @@ struct Object {
 }
 
 impl Object {
-    fn call(&self, method_name: String, args: Vec<Object>, scope: &Scope) -> Object {
+    fn call(&self, method_name: String, args: Vec<Object>, scope: &mut Scope) -> Object {
         if let Some(func) = self.methods.get(&method_name) {
             match func {
                 Function::BuiltIn(func) => func([vec![self.clone()], args].concat(), scope),
             }
         } else {
-            scope.get("Error").unwrap().clone()
+            scope.get("error").unwrap().clone()
         }
     }
 
-    fn display(&self, scope: &Scope) -> String {
+    fn display(&self, scope: &mut Scope) -> String {
         if self.methods.contains_key("__display__") {
             String::from_utf8(self.call("__display__".to_string(), vec![], scope).raw_data).unwrap()
         } else {
@@ -401,11 +497,11 @@ enum Node {
 }
 
 impl Node {
-    fn eval(&self, scope: &Scope) -> Object {
+    fn eval(&self, scope: &mut Scope) -> Object {
         match self {
             Node::Expr(expr) => expr.eval(scope),
             Node::Object(obj) => obj.clone(),
-            Node::Variable(v) => scope.get(v).unwrap_or(scope.get("Error").unwrap()).clone(),
+            Node::Variable(v) => scope.get(v).unwrap_or(scope.get("error").unwrap()).clone(),
         }
     }
 }
@@ -418,7 +514,7 @@ struct Expr {
 }
 
 impl Expr {
-    fn eval(&self, scope: &Scope) -> Object {
+    fn eval(&self, scope: &mut Scope) -> Object {
         let args: Vec<Object> = self.args.iter().map(|i| i.eval(scope)).collect();
         self.object
             .eval(scope)
